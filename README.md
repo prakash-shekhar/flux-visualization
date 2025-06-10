@@ -3,6 +3,10 @@ A nice visualization for the architecture of the FLUX model
 
 # FLUX Architecture
 
+![V2](v2.png)
+
+
+
 - Based on this https://github.com/black-forest-labs/flux/
 
 ## INPUT STAGE
