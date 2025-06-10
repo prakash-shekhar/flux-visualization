@@ -1,5 +1,5 @@
 # flux-visualization
-A nice visualization for the architecture of the FLUX model
+A visualization of the FLUX model architecture
 
 # FLUX Architecture
 
