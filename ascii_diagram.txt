@@ -4,7 +4,7 @@ FLUX TRANSFORMER: COMPLETE DATA FLOW ARCHITECTURE
 INPUT STAGE: MULTI-MODAL CONDITIONING & EMBEDDING
 ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │                                                                                                             │
-│ 🖼️  VISUAL INPUT PIPELINE                📝 TEXT INPUT PIPELINE                 ⏱️  TEMPORAL CONDITIONING   │
+│    VISUAL INPUT PIPELINE                  TEXT INPUT PIPELINE                     TEMPORAL CONDITIONING     │
 │ ┌─────────────────────┐                  ┌─────────────────────┐                ┌─────────────────────┐     │
 │ │ RGB Image           │                  │ Text Prompt         │                │ Timestep t ∈ [0,1]  │     │
 │ │ [B, 3, H, W]        │                  │ "A beautiful beach" │                │ Guidance strength   │     │
@@ -142,7 +142,7 @@ DUAL-STREAM PROCESSING: 19 × DoubleStreamBlock
 │         └────────────────┬─────────────────────────────────┘                                                │
 │                          ▼                                                                                  │
 │                ┌─────────────────────┐                                                                      │
-│                │ 🎯 CROSS-MODAL      │                                                                      │
+│                │  CROSS-MODAL        │                                                                      │
 │                │ ATTENTION           │                                                                      │
 │                │ q = cat(txt_q,img_q)│ ← KEY INNOVATION: Joint attention!                                   │
 │                │ k = cat(txt_k,img_k)│                                                                      │
@@ -246,7 +246,7 @@ SINGLE-STREAM PROCESSING: 38 × SingleStreamBlock
 │         │                                                                                                   │
 │         ▼                                                                                                   │
 │ ┌─────────────────────┐                                                                                     │
-│ │ 🚀 PARALLEL SPLIT   │ ← KEY EFFICIENCY INNOVATION!                                                        │
+│ │  PARALLEL SPLIT     │ ← KEY EFFICIENCY INNOVATION!                                                        │
 │ │ qkv, mlp = split(   │                                                                                     │
 │ │   linear1(x_mod),   │                                                                                     │
 │ │   [3*hidden_size,   │                                                                                     │
