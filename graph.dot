@@ -1,0 +1,208 @@
+digraph FluxTransformer {
+
+  /* ── GLOBAL STYLE ─────────────────────────────────────────── */
+  graph  [
+    fontname="Helvetica", fontsize=11,
+    bgcolor="white",
+    rankdir=TB,          /* STAGES stack vertically */
+    splines=ortho,
+    nodesep=0.45, ranksep=0.70,
+    compound=true, penwidth=1.5
+  ]
+  node   [
+    shape=roundrect, fontname="Helvetica", fontsize=9,
+    style="filled,rounded",
+    color="#333333", fillcolor="#f9f9f9",
+    penwidth=1.2, margin=0.15
+  ]
+  edge   [color="#666666", arrowsize=0.8, penwidth=1.0]
+
+  /* ══════════════ 1. INPUT STAGE ══════════════ */
+  subgraph cluster_input {
+    label=<<B>INPUT</B>>;
+    labelloc=t; labeljust=c;  // CHANGED TO CENTERED
+    style="rounded,filled"; color="#4d82b8"; fillcolor="#e8f5fe";
+    rankdir=LR;   /* internal flow horizontal */
+    fontname="Helvetica-Bold";  // ADDED BOLD FONT
+
+    /* visual branch */
+    RGB_Image   [label="RGB Image"];
+    VAE_Encoder [label="VAE Encoder\nflux/modules/autoencoder.py:109-180"];
+    VAE_Latent  [label="Latent\n[B,16,H/8,W/8]"];
+    PatchEmbed  [label="Patch Embed 2×2\nflux/sampling.py:41"];
+    SpatialIdx  [label="Positional IDs\nflux/sampling.py:45-48"];
+    VisEmbed    [label="Vis Embedding"];
+    VisTokens   [label="Vis Tokens"];
+    RGB_Image->VAE_Encoder->VAE_Latent->PatchEmbed->SpatialIdx->VisEmbed->VisTokens;
+
+    /* text branch */
+    TextPrompt [label="Text Prompt"];
+    T5Enc      [label="T5 Encoder\nflux/modules/conditioner.py:16-17"];
+    CLIPEnc    [label="CLIP Encoder\nflux/modules/conditioner.py:12-14"];
+    TxtCond    [label="Text Proc\nflux/sampling.py:52-55"];
+    CLIPCond   [label="CLIP→vec"];
+    TxtTokens  [label="Txt Tokens"];
+    TextPrompt -> {T5Enc CLIPEnc};
+    T5Enc -> TxtCond -> TxtTokens;
+    CLIPEnc -> CLIPCond;
+
+    /* temporal / guidance */
+    Timestep [label="Timestep / Mask"];
+    SinEmbed [label="SinEmbed\nflux/modules/layers.py:28-49"];
+    TimeMLP  [label="MLP(t)"];
+    GuideMLP [label="MLP(guid)\nmodel.py:100-103"];
+    VecComb  [label="Vector Cond\nmodel.py:104\n(time + guid + CLIP)"];
+    Timestep -> SinEmbed -> TimeMLP -> VecComb;
+    GuideMLP -> VecComb;
+    CLIPCond -> VecComb;
+
+    /* merge */
+    IDConcat [label="ID Concat"];
+    PosEnc   [label="RoPE PosEnc"];
+    {TxtTokens VisTokens} -> IDConcat -> PosEnc;
+
+    {rank=same; RGB_Image; TextPrompt; Timestep}
+  }
+
+  /* ══════════════ 2. DUAL-STREAM (×19) ══════════════ */
+  subgraph cluster_dual {
+    label=<<B>19 × DoubleStreamBlock(flux/modules/layers.py:129-191)</B>>;
+    labelloc=t; labeljust=c;  // CHANGED TO CENTERED
+    style="rounded,filled"; color="#f0b429"; fillcolor="#fff8e5";
+    rankdir=TB;  // CHANGED TO VERTICAL FLOW
+    nodesep=0.8; ranksep=0.3;  // REDUCED VERTICAL SPACING
+    fontname="Helvetica-Bold";  // ADDED BOLD FONT
+
+    // HORIZONTAL GROUPING
+    {rank=same; 
+      ds_img_in [label="IMG IN", fillcolor="#d8eafe"];
+      ds_txt_in [label="TXT IN", fillcolor="#d8eafe"];
+      ds_vec_in [label="vec IN", fillcolor="#e7ddff"];
+    }
+
+    // MODULATION LAYER
+    {rank=same;
+      VM_img    [label="Mod IMG"];
+      VM_txt    [label="Mod TXT"];
+    }
+
+    // ADALN + QKV LAYERS
+    {rank=same;
+      AdaLN_img [label="AdaLN IMG"];
+      AdaLN_txt [label="AdaLN TXT"];
+      QKV_img   [label="QKV IMG\n(+QKNorm)"];
+      QKV_txt   [label="QKV TXT\n(+QKNorm)"];
+    }
+
+    // ATTENTION LAYER
+    XAttn [label="Cross-Modal Attention"];
+
+    // RESIDUAL + MLP LAYERS
+    {rank=same;
+      Res_img [label="Res IMG"];
+      Res_txt [label="Res TXT"];
+      MLP_img [label="MLP IMG"];
+      MLP_txt [label="MLP TXT"];
+    }
+
+    // OUTPUTS
+    {rank=same;
+      ds_img_out [label="IMG OUT", fillcolor="#d8eafe"];
+      ds_txt_out [label="TXT OUT", fillcolor="#d8eafe"];
+    }
+
+    // CONNECTIONS
+    ds_img_in -> VM_img;
+    ds_txt_in -> VM_txt;
+    ds_vec_in -> VM_img [color="#9b59b6", penwidth=1.2];
+    ds_vec_in -> VM_txt [color="#9b59b6", penwidth=1.2];
+    VM_img -> AdaLN_img -> QKV_img -> XAttn;
+    VM_txt -> AdaLN_txt -> QKV_txt -> XAttn;
+    XAttn -> Res_img -> MLP_img -> ds_img_out;
+    XAttn -> Res_txt -> MLP_txt -> ds_txt_out;
+  }
+
+  /* ══════════════ 3. SINGLE-STREAM (×38) ══════════════ */
+  subgraph cluster_single {
+    label=<<B>38 SingleStreamBlock(flux/modules/layers.py:194-239)</B>>;
+    labelloc=t; labeljust=c;  // CHANGED TO CENTERED
+    style="rounded,filled"; color="#f4a257"; fillcolor="#fff5dc";
+    rankdir=TB;  // CHANGED TO VERTICAL FLOW
+    nodesep=1.0; ranksep=0.3;  // REDUCED VERTICAL SPACING
+    fontname="Helvetica-Bold";  // ADDED BOLD FONT
+
+    // INPUTS
+    {rank=same; 
+      ss_in  [label="SEQ IN", fillcolor="#d8eafe"];
+      ss_vec [label="vec IN", fillcolor="#e7ddff"];
+    }
+
+    // MODULATION + NORMALIZATION
+    {rank=same;
+      Mod      [label="Modulation"];
+      PreNorm  [label="Pre-Norm"];
+    }
+
+    // PROCESSING PATHS
+    {rank=same;
+      SplitLn  [label="linear1 → [qkv | mlp]"];
+      AttnPath [label="Attention"];
+      MLPPath  [label="MLP"];
+    }
+
+    // OUTPUT PROCESSING
+    {rank=same;
+      Combine  [label="Combine → linear2"];
+      Residual [label="Residual"];
+      ss_out   [label="SEQ OUT", fillcolor="#d8eafe"];
+    }
+
+    // CONNECTIONS
+    ss_vec -> Mod  [color="#9b59b6", penwidth=1.2];
+    ss_in  -> PreNorm -> SplitLn;
+    Mod -> PreNorm;
+    SplitLn -> AttnPath -> Combine;
+    SplitLn -> MLPPath  -> Combine;
+    Combine -> Residual -> ss_out;
+  }
+
+  /* ══════════════ 4. OUTPUT STAGE ══════════════ */
+  subgraph cluster_output {
+    label=<<B>OUTPUT</B>>;
+    labelloc=t; labeljust=c;  // CHANGED TO CENTERED
+    style="rounded,filled"; color="#56b890"; fillcolor="#e7f8f1";
+    rankdir=LR;
+    nodesep=1.2; ranksep=0.3;
+    fontname="Helvetica-Bold";  // ADDED BOLD FONT
+
+    ExtractTok [label="Extract Vis Tokens\n(model.py:116)", fillcolor="#ffe8b3"];
+    LastLayer  [label="LastLayer\nlayers.py:242-253"];
+    Velocity   [label="Velocity Field"];
+    Denoise    [label="Denoise Euler"];
+    Unpack     [label="Unpack"];
+    VAE_Dec    [label="VAE Decoder"];
+
+    /* Horizontal ranking for better spread */
+    {rank=same; ExtractTok; LastLayer; Velocity; Denoise; Unpack; VAE_Dec}
+
+    ExtractTok -> LastLayer -> Velocity -> Denoise -> Unpack -> VAE_Dec;
+  }
+
+  /* ══════════════ CROSS-STAGE WIRES (vertical) ══════════════ */
+  /* Input → Dual */
+  PosEnc  -> ds_img_in;
+  PosEnc  -> ds_txt_in;
+  VecComb -> ds_vec_in [color="#9b59b6", penwidth=1.2];
+
+  /* Dual → Fusion node (treated implicitly by feeding Single-Stream) */
+  ds_img_out -> StreamFusion [style=invis];  /* invisible helper, keeps order */
+  ds_txt_out -> StreamFusion [style=invis];
+
+  /* Fusion (conceptual) → Single */
+  StreamFusion [shape=point, width=0, style=invis];  /* keeps edges orthogonal */
+  ds_img_out -> ss_in;
+  VecComb    -> ss_vec [color="#9b59b6", penwidth=1.2];
+
+  /* Single → Output */
+  ss_out -> ExtractTok;
+}
