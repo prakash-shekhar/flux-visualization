@@ -3,11 +3,11 @@ A visualization of the FLUX model architecture
 
 # FLUX Architecture
 
-![V2](v2.png)
+![V3](v3.png)
 
 
 
-- Based on this https://github.com/black-forest-labs/flux/
+- Based on: https://github.com/black-forest-labs/flux/
 
 ## INPUT STAGE
 1. Text Conditioning
