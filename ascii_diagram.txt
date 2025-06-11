@@ -92,7 +92,7 @@ DUAL-STREAM PROCESSING: 19 × DoubleStreamBlock
 │ for block in self.double_blocks:  # model.py:110                                                            │
 │     img, txt = block(img=img, txt=txt, vec=vec, pe=pe)                                                      │
 │                                                                                                             │
-│ 📊 EACH DoubleStreamBlock (layers.py:129-191):                                                              │
+│    EACH DoubleStreamBlock (layers.py:129-191):                                                              │
 │                                                                                                             │
 │ ┌─────────────────────┐                          ┌─────────────────────┐                                    │
 │ │ IMG STREAM          │                          │ TXT STREAM          │                                    │
@@ -194,12 +194,12 @@ STREAM FUSION: Concatenation Strategy
 │ # CRITICAL OPERATION: model.py:113                                                                          │
 │ img = torch.cat((txt, img), 1)                                                                              │
 │                                                                                                             │
-│ 📊 TENSOR SHAPES:                                                                                           │
+│  TENSOR SHAPES:                                                                                             │
 │ • txt: [B, 512, hidden_size]        ← Text tokens (always first!)                                           │
 │ • img: [B, H×W/4, hidden_size]      ← Visual tokens (appended)                                              │
 │ • Result: [B, 512 + H×W/4, hidden_size] ← Unified sequence                                                  │
 │                                                                                                             │
-│ 🔍 MEMORY LAYOUT:                                                                                           │
+│  MEMORY LAYOUT:                                                                                             │
 │ ┌─────────────────────────────────────────────────────────────────────────────────────────────────────────┐ │
 │ │ Index:  0    1    2  ...  511  512  513  514  ...  511+H×W/4                                            │ │
 │ │ Content:[txt][txt][txt]...[txt][img][img][img]...[img]                                                  │ │
@@ -215,7 +215,7 @@ SINGLE-STREAM PROCESSING: 38 × SingleStreamBlock
 │ for block in self.single_blocks:  # model.py:114-115                                                        │
 │     img = block(img, vec=vec, pe=pe)                                                                        │
 │                                                                                                             │
-│ 📊 EACH SingleStreamBlock (layers.py:194-239): PARALLEL ARCHITECTURE                                        │
+│    EACH SingleStreamBlock (layers.py:194-239): PARALLEL ARCHITECTURE                                        │
 │                                                                                                             │
 │ ┌─────────────────────┐                                                                                     │
 │ │ UNIFIED SEQUENCE    │ ← Input: [B, 512 + H×W/4, hidden_size]                                              │
