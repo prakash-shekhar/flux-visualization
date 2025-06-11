@@ -8,7 +8,7 @@ INPUT STAGE: MULTI-MODAL CONDITIONING & EMBEDDING
 │ ┌─────────────────────┐                  ┌─────────────────────┐                ┌─────────────────────┐     │
 │ │ RGB Image           │                  │ Text Prompt         │                │ Timestep t ∈ [0,1]  │     │
 │ │ [B, 3, H, W]        │                  │ "A beautiful beach" │                │ Guidance strength   │     │
-│ │ e.g., [1,3,1024,1024]│                 │ List[str]           │                │ [B] tensors         │     │
+│ │e.g., [1,3,1024,1024]│                 │ List[str]           │                │ [B] tensors         │     │
 │ └─────────────────────┘                  └─────────────────────┘                └─────────────────────      │
 │         │                                          │                                     │                  │
 │         ▼                                          ▼                                     ▼                  │
@@ -306,7 +306,7 @@ VISUAL TOKEN EXTRACTION & OUTPUT STAGE
 │ # Extract only visual tokens: model.py:116                                                                  │
 │ img = img[:, txt.shape[1]:, ...]                                                                            │
 │                                                                                                             │
-│ 📊 EXTRACTION PROCESS:                                                                                      │
+│    EXTRACTION PROCESS:                                                                                      │
 │ • Input: [B, 512 + H×W/4, hidden_size] ← Unified sequence                                                   │
 │ • txt.shape[1] = 512 ← Text sequence length                                                                 │
 │ • Output: [B, H×W/4, hidden_size] ← Pure visual tokens                                                      │
